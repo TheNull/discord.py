@@ -24,6 +24,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from .emoji import Emoji
+
 class Game:
     """Represents a Discord game.
 
@@ -43,20 +45,26 @@ class Game:
 
     Attributes
     -----------
-    name: str
+    name : str
         The game's name.
-    url: str
+    url : str
         The game's URL. Usually used for twitch streaming.
-    type: int
+    type : int
         The type of game being played. 1 indicates "Streaming".
     """
 
-    __slots__ = ['name', 'type', 'url']
+    __slots__ = ['name', 'type', 'url', 'created_at', 'timestamps', 'details', 'state', 'emoji']
 
     def __init__(self, **kwargs):
         self.name = kwargs.get('name')
         self.url = kwargs.get('url')
-        self.type = kwargs.get('type', 0)
+        self.type = kwargs.get('type')
+        self.created_at = kwargs.get('created_at')
+        self.timestamps = kwargs.get('timestamps', {})
+        self.details = kwargs.get('details')
+        self.state = kwargs.get('state')
+        emoji = kwargs.get('emoji')
+        self.emoji = Emoji(server=None, **emoji) if emoji else None
 
     def __str__(self):
         return self.name

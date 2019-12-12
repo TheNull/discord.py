@@ -53,7 +53,7 @@ class VoiceState:
     """
 
     __slots__ = [ 'session_id', 'deaf', 'mute', 'self_mute',
-                  'self_deaf', 'is_afk', 'voice_channel' ]
+                  'self_deaf', 'self_stream', 'is_afk', 'voice_channel' ]
 
     def __init__(self, **kwargs):
         self.session_id = kwargs.get('session_id')
@@ -62,6 +62,7 @@ class VoiceState:
     def _update_voice_state(self, **kwargs):
         self.self_mute = kwargs.get('self_mute', False)
         self.self_deaf = kwargs.get('self_deaf', False)
+        self.self_stream = kwargs.get('self_stream', False)
         self.is_afk = kwargs.get('suppress', False)
         self.mute = kwargs.get('mute', False)
         self.deaf = kwargs.get('deaf', False)
@@ -103,22 +104,26 @@ class Member(User):
         The server specific nickname of the user.
     """
 
-    __slots__ = [ 'roles', 'joined_at', 'status', 'game', 'server', 'nick', 'voice' ]
+    __slots__ = [ 'roles', 'joined_at', 'client_status', 'status', 'game', 'activities', 'server', 'nick', 'voice' ]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs.get('user'))
         self.voice = VoiceState(**kwargs)
         self.joined_at = utils.parse_time(kwargs.get('joined_at'))
         self.roles = kwargs.get('roles', [])
+        self.client_status = dict(desktop=Status.offline, mobile=Status.offline, web=Status.offline)
         self.status = Status.offline
         game = kwargs.get('game', {})
         self.game = Game(**game) if game else None
+        activities = kwargs.get('activities', [])
+        self.activities = [Game(**x) for x in activities] if activities else None
         self.server = kwargs.get('server', None)
         self.nick = kwargs.get('nick', None)
 
     def _update_voice_state(self, **kwargs):
         self.voice.self_mute = kwargs.get('self_mute', False)
         self.voice.self_deaf = kwargs.get('self_deaf', False)
+        self.voice.self_stream = kwargs.get('self_stream', False)
         self.voice.is_afk = kwargs.get('suppress', False)
         self.voice.mute = kwargs.get('mute', False)
         self.voice.deaf = kwargs.get('deaf', False)
@@ -155,15 +160,19 @@ class Member(User):
         There is an alias for this under ``color``.
         """
 
-        roles = self.roles[1:] # remove @everyone
-
+        default_colour = Colour.default()
         # highest order of the colour is the one that gets rendered.
         # if the highest is the default colour then the next one with a colour
         # is chosen instead
-        for role in reversed(roles):
-            if role.colour.value:
-                return role.colour
-        return Colour.default()
+        if self.roles:
+            roles = sorted(self.roles, key=lambda r: r.position, reverse=True)
+            for role in roles:
+                if role.colour == default_colour:
+                    continue
+                else:
+                    return role.colour
+
+        return default_colour
 
     color = colour
 
@@ -193,7 +202,10 @@ class Member(User):
         hierarchy chain.
         """
 
-        return self.roles[-1]
+        if self.roles:
+            roles = sorted(self.roles, reverse=True)
+            return roles[0]
+        return None
 
     @property
     def server_permissions(self):

@@ -111,7 +111,7 @@ class Server(Hashable):
     __slots__ = ['afk_timeout', 'afk_channel', '_members', '_channels', 'icon',
                  'name', 'id', 'owner', 'unavailable', 'name', 'region',
                  '_default_role', '_default_channel', 'roles', '_member_count',
-                 'large', 'owner_id', 'mfa_level', 'emojis', 'features',
+                 'large', 'owner_id', 'mfa_level', 'emojis', 'features', 'premium_subscription_count',
                  'verification_level', 'splash' ]
 
     def __init__(self, **kwargs):
@@ -202,6 +202,7 @@ class Server(Hashable):
         self.emojis = [Emoji(server=self, **r) for r in guild.get('emojis', [])]
         self.features = guild.get('features', [])
         self.splash = guild.get('splash')
+        self.premium_subscription_count = guild.get('premium_subscription_count')
 
         for mdata in guild.get('members', []):
             roles = [self.default_role]
@@ -210,7 +211,7 @@ class Server(Hashable):
                 if role is not None:
                     roles.append(role)
 
-            mdata['roles'] = sorted(roles)
+            mdata['roles'] = roles
             member = Member(**mdata)
             member.server = self
             self._add_member(member)
@@ -241,6 +242,12 @@ class Server(Hashable):
                     member.status = Status(member.status)
                 except:
                     pass
+                for platform, str_status in presence['client_status'].items():
+                    try:
+                        member.client_status[platform] = str_status
+                        member.client_status[platform] = Status(str_status)
+                    except:
+                        pass
                 game = presence.get('game', {})
                 member.game = Game(**game) if game else None
 

@@ -81,8 +81,8 @@ class Channel(Hashable):
         The channel's limit for number of members that can be in a voice channel.
     """
 
-    __slots__ = [ 'voice_members', 'name', 'id', 'server', 'topic', 'position',
-                  'is_private', 'type', 'bitrate', 'user_limit',
+    __slots__ = [ 'voice_members', 'name', 'id', 'server', 'topic', 'position', 'parent_id',
+                  'is_private', 'type', 'bitrate', 'user_limit', 'rate_limit_per_user',
                   '_permission_overwrites' ]
 
     def __init__(self, **kwargs):
@@ -102,6 +102,8 @@ class Channel(Hashable):
         self.bitrate = kwargs.get('bitrate')
         self.type = kwargs.get('type')
         self.user_limit = kwargs.get('user_limit')
+        self.rate_limit_per_user = kwargs.get('rate_limit_per_user')
+        self.parent_id = kwargs.get('parent_id')
         try:
             self.type = ChannelType(self.type)
         except:

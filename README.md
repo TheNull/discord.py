@@ -3,6 +3,11 @@
 [![PyPI](https://img.shields.io/pypi/v/discord.py.svg)](https://pypi.python.org/pypi/discord.py/)
 [![PyPI](https://img.shields.io/pypi/pyversions/discord.py.svg)](https://pypi.python.org/pypi/discord.py/)
 
+### DO NOT USE THIS IN YOUR OWN PROJECT.
+
+It is customized specfically for my own personal bots and may not function as expected outside of that environment.
+
+
 discord.py is an API wrapper for Discord written in Python.
 
 This was written to allow easier writing of bots or chat logs. Make sure to familiarise yourself with the API using the [documentation][doc].

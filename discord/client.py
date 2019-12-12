@@ -446,9 +446,10 @@ class Client:
         while not self.is_closed:
             try:
                 yield from self.ws.poll_event()
-            except ResumeWebSocket:
-                log.info('Got ResumeWebsocket')
-                self.ws = yield from DiscordWebSocket.from_client(self, resume=True)
+            except (ReconnectWebSocket, ResumeWebSocket) as e:
+                resume = type(e) is ResumeWebSocket
+                log.info('Got ' + type(e).__name__)
+                self.ws = yield from DiscordWebSocket.from_client(self, resume=resume)
             except ConnectionClosed as e:
                 yield from self.close()
                 if e.code != 1000:
@@ -2306,7 +2307,7 @@ class Client:
             ``INVITE_SPLASH`` feature.
         region: :class:`ServerRegion`
             The new region for the server's voice communication.
-        afk_channel: Optional[:class:`Channel`]
+        afk_channel: :class:`Channel`
             The new channel that is the AFK channel. Could be ``None`` for no AFK channel.
         afk_timeout: int
             The number of seconds until someone is moved to the AFK channel.
@@ -2352,16 +2353,8 @@ class Client:
 
         fields['icon'] = icon
         fields['splash'] = splash
-
-        try:
-            afk_channel = fields.pop('afk_channel')
-        except KeyError:
-            pass
-        else:
-            if afk_channel is None:
-                fields['afk_channel_id'] = afk_channel
-            else:
-                fields['afk_channel_id'] = afk_channel.id
+        if 'afk_channel' in fields:
+            fields['afk_channel_id'] = fields['afk_channel'].id
 
         if 'owner' in fields:
             if server.owner != server.me:
@@ -3026,7 +3019,7 @@ class Client:
             overwrite = discord.PermissionOverwrite()
             overwrite.read_messages = True
             overwrite.ban_members = False
-            await client.edit_channel_permissions(message.channel, message.author, overwrite)
+            yield from client.edit_channel_permissions(message.channel, message.author, overwrite)
 
         Parameters
         -----------
@@ -3128,10 +3121,11 @@ class Client:
             You do not have permissions to move the member.
         """
 
-        if getattr(channel, 'type', ChannelType.text) != ChannelType.voice:
-            raise InvalidArgument('The channel provided must be a voice channel.')
+        if channel:
+            if getattr(channel, 'type', ChannelType.text) != ChannelType.voice:
+                raise InvalidArgument('The channel provided must be a voice channel.')
 
-        yield from self.http.move_member(member.id, member.server.id, channel.id)
+        yield from self.http.move_member(member.id, member.server.id, (channel.id if channel else None))
 
     @asyncio.coroutine
     def join_voice_channel(self, channel):
@@ -3188,13 +3182,8 @@ class Client:
 
         # request joining
         yield from self.ws.voice_state(server.id, channel.id)
-
-        try:
-            session_id_data = yield from asyncio.wait_for(session_id_future, timeout=10.0, loop=self.loop)
-            data = yield from asyncio.wait_for(voice_data_future, timeout=10.0, loop=self.loop)
-        except asyncio.TimeoutError as e:
-            yield from self.ws.voice_state(server.id, None, self_mute=True)
-            raise e
+        session_id_data = yield from asyncio.wait_for(session_id_future, timeout=10.0, loop=self.loop)
+        data = yield from asyncio.wait_for(voice_data_future, timeout=10.0, loop=self.loop)
 
         kwargs = {
             'user': self.user,

@@ -92,8 +92,7 @@ class HTTPClient:
         self.connector = connector
         self.session = aiohttp.ClientSession(connector=connector, loop=self.loop)
         self._locks = weakref.WeakValueDictionary()
-        self._global_over = asyncio.Event(loop=self.loop)
-        self._global_over.set()
+        self._global_lock = asyncio.Lock(loop=self.loop)
         self.token = None
         self.bot_token = False
 
@@ -127,9 +126,9 @@ class HTTPClient:
 
         kwargs['headers'] = headers
 
-        if not self._global_over.is_set():
+        if self._global_lock.locked():
             # wait until the global lock is complete
-            yield from self._global_over.wait()
+            yield from self._global_lock
 
         yield from lock
         with MaybeUnlock(lock) as maybe_lock:
@@ -173,16 +172,15 @@ class HTTPClient:
                         is_global = data.get('global', False)
                         if is_global:
                             log.info('Global rate limit has been hit. Retrying in {:.2} seconds.'.format(retry_after))
-                            self._global_over.clear()
+                            # acquire the global lock and block all processing
+                            yield from self._global_lock
 
                         yield from asyncio.sleep(retry_after, loop=self.loop)
-                        log.debug('Done sleeping for the rate limit. Retrying...')
 
                         # release the global lock now that the
                         # global rate limit has passed
                         if is_global:
-                            self._global_over.set()
-                            log.debug('Global rate limit is now over.')
+                            self._global_lock.release()
 
                         continue
 
@@ -454,7 +452,7 @@ class HTTPClient:
     # Channel management
 
     def edit_channel(self, channel_id, **options):
-        valid_keys = ('name', 'topic', 'bitrate', 'user_limit', 'position')
+        valid_keys = ('name', 'topic', 'bitrate', 'user_limit', 'position', 'rate_limit_per_user', 'parent_id')
         payload = {
             k: v for k, v in options.items() if k in valid_keys
         }

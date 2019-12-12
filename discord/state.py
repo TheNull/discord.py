@@ -335,8 +335,17 @@ class ConnectionState:
         except:
             pass
 
+        for platform, str_status in data.get('client_status').items():
+            try:
+                member.client_status[platform] = str_status
+                member.client_status[platform] = Status(str_status)
+            except:
+                pass
+
         game = data.get('game', {})
         member.game = Game(**game) if game else None
+        activities = data.get('activities', [])
+        member.activities = [Game(**x) for x in activities] if activities else None
         member.name = user.get('username', member.name)
         member.avatar = user.get('avatar', member.avatar)
         member.discriminator = user.get('discriminator', member.discriminator)
@@ -410,7 +419,7 @@ class ConnectionState:
             if role is not None:
                 roles.append(role)
 
-        data['roles'] = sorted(roles)
+        data['roles'] = sorted(roles, key=lambda r: int(r.id))
         return Member(server=server, **data)
 
     def parse_guild_member_add(self, data):
@@ -463,7 +472,7 @@ class ConnectionState:
                     member.roles.append(role)
 
             # sort the roles by ID since they can be "randomised"
-            member.roles.sort()
+            member.roles.sort(key=lambda r: int(r.id))
             self.dispatch('member_update', old_member, member)
 
     def parse_guild_emojis_update(self, data):
